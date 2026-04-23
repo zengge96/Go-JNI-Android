@@ -15,11 +15,6 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
     
-    - name: Setup Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: '1.22'
-    
     - name: Setup Java
       uses: actions/setup-java@v4
       with:
@@ -33,14 +28,25 @@ jobs:
       run: |
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;25.2.9519653" 2>/dev/null || \
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;26.1.10909125" 2>/dev/null || \
-        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;27.0.12002873" 2>/dev/null || \
         echo "Trying without specific version"
         ls -la $ANDROID_HOME/ndk/ 2>/dev/null || echo "No NDK found"
+    
+    - name: Setup Go for ARM64
+      run: |
+        # Download Go ARM64 toolchain for Android cross-compilation
+        curl -sL https://go.dev/dl/go1.22.5.linux-arm64.tar.gz -o /tmp/go-arm64.tar.gz
+        mkdir -p /opt/go-arm64
+        tar -xzf /tmp/go-arm64.tar.gz -C /opt/go-arm64 --strip-components=1
+        echo "/opt/go-arm64/bin" >> $GITHUB_PATH
+        go version
+        export GOARM=8
+        go version
     
     - name: Build APK
       run: |
         cd GoJNIAndroid
         chmod +x gradlew
+        chmod +x app/src/main/jni/go/build.sh
         ./gradlew assembleDebug --no-daemon 2>&1 | tee build_output.log || true
         cat build_output.log
     
