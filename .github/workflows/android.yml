@@ -1,0 +1,57 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.22'
+    
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+    
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+    
+    - name: Install NDK
+      run: |
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;25.2.9519653" 2>/dev/null || \
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;26.1.10909125" 2>/dev/null || \
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;27.0.12002873" 2>/dev/null || \
+        echo "Trying without specific version"
+        ls -la $ANDROID_HOME/ndk/ 2>/dev/null || echo "No NDK found"
+    
+    - name: Build APK
+      run: |
+        cd GoJNIAndroid
+        chmod +x gradlew
+        ./gradlew assembleDebug --no-daemon 2>&1 | tail -50
+    
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: android-apk
+        path: GoJNIAndroid/app/build/outputs/apk/debug/app-debug.apk
+    
+    - name: Show APK info
+      if: always()
+      run: |
+        if [ -f GoJNIAndroid/app/build/outputs/apk/debug/app-debug.apk ]; then
+          ls -lh GoJNIAndroid/app/build/outputs/apk/debug/app-debug.apk
+          unzip -l GoJNIAndroid/app/build/outputs/apk/debug/app-debug.apk | grep "\.so" | head -10
+        fi

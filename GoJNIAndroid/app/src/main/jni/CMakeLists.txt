@@ -26,4 +26,6 @@ add_custom_target(${GO_LIB}
 add_dependencies(${C_LIB} ${GO_LIB})
 
 find_library(log-lib log)
-target_link_libraries(${C_LIB} ${log-lib})
+
+# Link C library with Go library
+target_link_libraries(${C_LIB} ${log-lib} ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/lib${GO_LIB}.so)
