@@ -4,11 +4,11 @@ import "C"
 
 //export goHelloWorld
 func goHelloWorld() *C.char {
-    return C.CString("Hello :)")
+    return C.CString("Hello from Go! 😊")
 }
 
 //export goInteger
-func goInteger() int {
+func goInteger() C.int {
     return 24
 }
 

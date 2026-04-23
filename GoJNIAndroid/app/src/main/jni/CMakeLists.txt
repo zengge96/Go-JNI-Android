@@ -3,29 +3,35 @@ cmake_minimum_required(VERSION 3.22.1)
 SET(C_LIB native-lib)
 SET(GO_LIB native-lib-go)
 
-add_library(${C_LIB}
-        SHARED
-        c_android.c)
+# Build Go library first using custom command
+SET(GO_OUTPUT_DIR ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
+SET(GO_SONAME lib${GO_LIB}.so)
 
-add_custom_target(${GO_LIB}
-        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/go"
-        COMMENT "Building ${GO_LIB}"
-        VERBATIM COMMAND make
-        ANDROID_ARCH_NAME=${ANDROID_ARCH_NAME}
-        ANDROID_C_COMPILER=${ANDROID_C_COMPILER}
-        ANDROID_TOOLCHAIN_ROOT=${ANDROID_TOOLCHAIN_ROOT}
-        ANDROID_LLVM_TRIPLE=${ANDROID_LLVM_TRIPLE}
-        ANDROID_SYSROOT=${ANDROID_SYSROOT}
-        ANDROID_PACKAGE_NAME=${ANDROID_PACKAGE_NAME}
-        GRADLE_USER_HOME=${GRADLE_USER_HOME}
-        CFLAGS=${CMAKE_C_FLAGS}\ -Wno-unused-command-line-argument
-        LDFLAGS=${CMAKE_SHARED_LINKER_FLAGS}\ -fuse-ld=gold
-        BUILDDIR=${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
-        SONAME=lib${GO_LIB}.so)
+# Custom command to build Go library
+ADD_CUSTOM_COMMAND(
+    OUTPUT ${GO_OUTPUT_DIR}/${GO_SONAME}
+    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/go/build.sh ${GO_OUTPUT_DIR} ${GO_SONAME} ${ANDROID_ARCH_NAME} ${ANDROID_C_COMPILER} ${ANDROID_TOOLCHAIN_ROOT} ${ANDROID_LLVM_TRIPLE} ${ANDROID_SYSROOT}
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/go
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/go/test.go
+    COMMENT "Building Go library"
+    VERBATIM
+)
 
-add_dependencies(${C_LIB} ${GO_LIB})
+# Create imported library for Go
+ADD_LIBRARY(${GO_LIB} SHARED IMPORTED)
+SET_TARGET_PROPERTIES(${GO_LIB} PROPERTIES
+    IMPORTED_LOCATION ${GO_OUTPUT_DIR}/${GO_SONAME}
+)
 
+# Add C library
+ADD_library(${C_LIB} SHARED c_android.c)
+ADD_DEPENDENCIES(${C_LIB} ${GO_LIB})
+
+# Link libraries
 find_library(log-lib log)
+TARGET_LINK_LIBRARIES(${C_LIB} ${log-lib} ${GO_LIB})
 
-# Link C library with Go library
-target_link_libraries(${C_LIB} ${log-lib} ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/lib${GO_LIB}.so)
+# Also include the Go library in the APK
+ADD_CUSTOM_TARGET(${GO_LIB}_all ALL
+    DEPENDS ${GO_OUTPUT_DIR}/${GO_SONAME}
+)
