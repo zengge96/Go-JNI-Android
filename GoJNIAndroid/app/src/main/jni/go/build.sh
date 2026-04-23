@@ -9,8 +9,8 @@ TOOLCHAIN=$5
 LLVM_TRIPLE=$6
 SYSROOT=$7
 
-# Use ARM64 Go toolchain for Android cross-compilation
-export GOROOT=/opt/go-arm64
+# Use standard Go toolchain for cross-compilation
+export GOROOT=/usr/local/go
 export PATH=$GOROOT/bin:$PATH
 
 # Map architecture names
@@ -38,9 +38,9 @@ export GOOS=android
 export GOARCH=$GOARCH
 export CC=$COMPILER
 
-# Build flags for Android
-export CGO_CFLAGS="-target=$LLVM_TRIPLE --gcc-toolchain=$TOOLCHAIN --sysroot=$SYSROOT"
-export CGO_LDFLAGS="-target=$LLVM_TRIPLE --gcc-toolchain=$TOOLCHAIN --sysroot=$SYSROOT -Wl,-soname=$SONAME"
+# Build flags for Android - use the NDK's clang
+export CGO_CFLAGS="--target=$LLVM_TRIPLE --gcc-toolchain=$TOOLCHAIN --sysroot=$SYSROOT"
+export CGO_LDFLAGS="--target=$LLVM_TRIPLE --gcc-toolchain=$TOOLCHAIN --sysroot=$SYSROOT -Wl,-soname=$SONAME"
 
 echo "Building Go library for $GOARCH (Android $ARCH)..."
 echo "Output: $OUTPUT_DIR/$SONAME"
@@ -52,8 +52,9 @@ echo "Go version: $(go version)"
 # Create output directory if needed
 mkdir -p "$OUTPUT_DIR"
 
-# Build Go library with CGO enabled
-go build -o "$OUTPUT_DIR/$SONAME" -buildmode=c-shared
+# Build Go library with CGO enabled for Android
+# Note: Go compiler can produce ARM binaries even when running on x86_64
+go build -o "$OUTPUT_DIR/$SONAME" -buildmode=c-shared .
 
 echo "Done!"
 ls -la "$OUTPUT_DIR/$SONAME" 2>/dev/null || echo "Build failed - file not found"
